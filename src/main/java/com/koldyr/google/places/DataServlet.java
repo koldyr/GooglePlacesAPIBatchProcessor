@@ -2,6 +2,7 @@ package com.koldyr.google.places;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -38,8 +39,11 @@ public class DataServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) throws IOException {
-        List<String> brandNames = Main.loadBrands("/retailers_all.txt");
+        final InputStream input = getClass().getResourceAsStream("/input_all.txt");
+        final List<String> brandNames = BatchProcessor.loadInputData(input);
+
         objectMapper.writeValue(httpServletResponse.getOutputStream(), brandNames);
+
         httpServletResponse.flushBuffer();
     }
 
@@ -47,9 +51,9 @@ public class DataServlet extends HttpServlet {
     protected void doPost(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
         try {
             final String brand = httpServletRequest.getHeader("x-brand");
-            List<Place> result = objectMapper.readValue(httpServletRequest.getInputStream(), retailersCollection);
+            final List<Place> result = objectMapper.readValue(httpServletRequest.getInputStream(), retailersCollection);
 
-            objectMapper.writeValue(new File("C:/Projects/retailers/los-angeles/" + brand + ".json"), result);
+            objectMapper.writeValue(new File("C:/Projects/PlacesBatchProcessor/los-angeles/" + brand + ".json"), result);
 
             logger.debug('"' + brand + "\" completed " + result.size());
         } catch (IOException e) {

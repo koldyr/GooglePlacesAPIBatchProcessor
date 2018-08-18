@@ -29,7 +29,7 @@ function FindPlacesService(gmap, searchArea) {
 
     let quadrantIndex;
     const quadrants = getQuadrants(searchArea);
-    console.log('quadrants', quadrants.length);
+    console.info('quadrants', quadrants.length);
 
     this.startProcess = function () {
         getBrands().then(doPlacesSearch);
@@ -42,7 +42,7 @@ function FindPlacesService(gmap, searchArea) {
     }
 
     function nextBrandSearch(brand) {
-        console.log('Staring', brand);
+        console.info('Staring', brand);
 
         const places = [];
         quadrantIndex = 0;
@@ -53,7 +53,7 @@ function FindPlacesService(gmap, searchArea) {
             type: type
         }, function (results, status, pagination) {
             try {
-                handleResults(results, status, pagination, places);
+                handleSearchResults(results, status, pagination, places);
 
                 if (!pagination || !pagination.hasNextPage) {
                     quadrantIndex++;
@@ -69,7 +69,7 @@ function FindPlacesService(gmap, searchArea) {
     }
 
     function nextQuadrantSearch(brand, places) {
-        console.log(brand, 'index:' + quadrantIndex, 'size:' + places.length);
+        console.debug(brand, 'index:' + quadrantIndex, places.length);
 
         placesService.nearbySearch({
             keyword: brand,
@@ -77,7 +77,7 @@ function FindPlacesService(gmap, searchArea) {
             type: type
         }, function (results, status, pagination) {
             try {
-                handleResults(results, status, pagination, places);
+                handleSearchResults(results, status, pagination, places);
 
                 if (!pagination || !pagination.hasNextPage) {
                     quadrantIndex++;
@@ -86,25 +86,29 @@ function FindPlacesService(gmap, searchArea) {
                         setTimeout(nextQuadrantSearch, 1, brand, places);
                     } else {
                         if (places.length > 0) {
+                            console.info(brand, 'found', places.length, 'places');
                             setTimeout(fillElevationData, 1, brand, places);
                         } else {
-                            console.log(brand, 'Completed with 0 results');
-                        }
+                            if (brands.length > 0) {
+                                setTimeout(nextBrandSearch, 1, brands.shift().toLowerCase());
+                            }
 
-                        if (brands.length > 0) {
-                            setTimeout(nextBrandSearch, 1, brands.shift().toLowerCase());
+                            console.info(brand, 'Completed with 0 results');
                         }
                     }
                 }
             } catch (ex) {
-                if (ex.message === google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT) {
-                    setTimeout(nextQuadrantSearch, 10000, brand, places);
+                if (ex.message === google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT ||
+                    ex.message === google.maps.places.PlacesServiceStatus.UNKNOWN_ERROR) {
+                    setTimeout(nextQuadrantSearch, 7000, brand, places);
+                } else {
+                    console.error('handleSearchResults:', ex);
                 }
             }
         });
     }
 
-    function handleResults(results, status, pagination, places) {
+    function handleSearchResults(results, status, pagination, places) {
         if (status === google.maps.places.PlacesServiceStatus.OK) {
             for (let i = 0; i < results.length; i++) {
                 // createMarker(results[i]);
@@ -114,12 +118,13 @@ function FindPlacesService(gmap, searchArea) {
             if (pagination && pagination.hasNextPage) {
                 pagination.nextPage();
             }
-        } else if (status === google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT) {
+        } else if (status === google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT ||
+            status === google.maps.places.PlacesServiceStatus.UNKNOWN_ERROR) {
             throw new Error(status);
         } else if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
             // ignore
         } else {
-            console.log(status.toString());
+            console.debug(status.toString());
         }
     }
 
@@ -144,7 +149,7 @@ function FindPlacesService(gmap, searchArea) {
     }
 
     function fillElevationData(brand, places) {
-        console.log(brand, 'Elevation Data');
+        console.info(brand, 'Elevation Data');
         const locations = places.map((retailer) => new google.maps.LatLng(retailer.location.lat, retailer.location.lng));
 
         elevationService.getElevationForLocations({ locations: locations }, (elevations, status) => {
@@ -159,12 +164,16 @@ function FindPlacesService(gmap, searchArea) {
     }
 
     function fillFireStationDistance(brand, places, locations) {
-        console.log(brand, 'Fire Station Distance');
+        console.info(brand, 'Fire Station Distance');
 
         nextFireStationDistance(brand, places, locations, 0);
     }
 
-    function nextFireStationDistance(brand, places, locations, index) {
+    function nextFireStationDistance(brand, places, locations, fireStationPlaceIndex) {
+        if (fireStationPlaceIndex % 50 === 0) {
+            console.debug(brand, fireStationPlaceIndex);
+        }
+
         const retailerLocation = locations[0];
         const request = {
             location: retailerLocation,
@@ -173,27 +182,50 @@ function FindPlacesService(gmap, searchArea) {
         };
 
         placesService.nearbySearch(request, (fireStations, status) => {
-            if (status === google.maps.places.PlacesServiceStatus.OK) {
+            try {
+                handleFireStationResults(fireStations, status, locations, retailerLocation, places[fireStationPlaceIndex]);
+
                 locations.shift();
 
-                if (fireStations.length > 0) {
-                    places[index].fireStationDist = getNearestFireStation(retailerLocation, fireStations);
-                }
-            } else if (status === google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT) {
-                setTimeout(nextFireStationDistance, 10000, brand, places, locations, index);
-                return;
-            }
+                if (locations.length > 0) {
+                    setTimeout(nextFireStationDistance, 160, brand, places, locations, fireStationPlaceIndex + 1);
+                } else {
+                    sendResults(brand, places);
 
-            if (locations.length > 0) {
-                setTimeout(nextFireStationDistance, 100, brand, places, locations, index + 1);
-            } else {
-                sendResults(brand, places);
+                    if (brands.length > 0) {
+                        setTimeout(nextBrandSearch, 1, brands.shift().toLowerCase());
+                    }
+                }
+            } catch (ex) {
+                if (ex.message === google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT ||
+                    ex.message === google.maps.places.PlacesServiceStatus.UNKNOWN_ERROR) {
+                    console.debug('Repeat', brand, fireStationPlaceIndex);
+
+                    setTimeout(nextFireStationDistance, 2000, brand, places, locations, fireStationPlaceIndex);
+                } else {
+                    console.error('handleFireStationResults:', ex);
+                }
             }
         });
     }
 
+    function handleFireStationResults(fireStations, status, locations, retailerLocation, place) {
+        if (status === google.maps.places.PlacesServiceStatus.OK) {
+            if (fireStations.length > 0) {
+                place.fireStationDist = getNearestFireStation(retailerLocation, fireStations);
+            }
+        } else if (status === google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT ||
+            status === google.maps.places.PlacesServiceStatus.UNKNOWN_ERROR) {
+            throw new Error(status);
+        } else if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
+            //ignore
+        } else {
+            console.debug(status.toString());
+        }
+    }
+
     function sendResults(brand, places) {
-        console.log(brand, 'Completed');
+        console.info(brand, 'Completed', places.length);
 
         fetch('places', {
             method: 'POST',
@@ -202,7 +234,7 @@ function FindPlacesService(gmap, searchArea) {
                 'Content-Type': 'application/json',
                 'x-brand': brand
             }
-        }).catch(error => console.error('Error:', error));
+        }).catch(error => console.error('sendResults:', error));
     }
 
     function getBrands() {
