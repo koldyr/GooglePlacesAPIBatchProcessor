@@ -32,6 +32,11 @@ public class JSONToCSVConverter {
 
         File inputDir = new File(args[0]);
         File[] files = inputDir.listFiles((dir, name) -> name.endsWith(".json"));
+//        writeFilePerBrand(objectMapper, placesCollection, files);
+        writeSingle(objectMapper, placesCollection, inputDir, files);
+    }
+
+    private static void writeFilePerBrand(ObjectMapper objectMapper, CollectionType placesCollection, File[] files) {
         for (File jsonFile : files) {
             try {
                 String brand = getBrand(jsonFile);
@@ -43,12 +48,30 @@ public class JSONToCSVConverter {
         }
     }
 
+    private static void writeSingle(ObjectMapper objectMapper, CollectionType placesCollection, File parentDir, File[] files) {
+        final File outputName = new File(parentDir, "los-angeles.csv");
+        try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputName)))) {
+            writer.write(getFileHeader());
+
+            for (File jsonFile : files) {
+                try {
+                    List<Place> result = objectMapper.readValue(jsonFile, placesCollection);
+                    writeCSVFile(writer, result);
+                } catch (IOException e) {
+                    logger.error(e.getMessage(), e);
+                }
+            }
+        } catch (Exception e) {
+            logger.error(e.getMessage(), e);
+        }
+    }
+
     private static void writeCSVFile(String brand, File jsonFile, Iterable<Place> places) {
         logger.debug(brand);
 
         final File outputName = new File(jsonFile.getParentFile(), brand + ".csv");
         try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputName)))) {
-            writer.write(getPlaceHeader());
+            writer.write(getFileHeader());
             for (Place place : places) {
                 writer.write(getPlaceLine(place));
             }
@@ -57,7 +80,13 @@ public class JSONToCSVConverter {
         }
     }
 
-    private static String getPlaceHeader() {
+    private static void writeCSVFile(BufferedWriter writer, Iterable<Place> places) throws IOException {
+        for (Place place : places) {
+            writer.write(getPlaceLine(place));
+        }
+    }
+
+    private static String getFileHeader() {
         return "placeId,name,address,location,elevation,fireStationDist\n";
     }
 

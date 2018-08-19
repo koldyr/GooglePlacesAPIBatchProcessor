@@ -72,7 +72,7 @@ function FindPlacesService(gmap, searchArea) {
         console.debug(brand, 'index:' + quadrantIndex, places.length);
 
         placesService.nearbySearch({
-            keyword: brand,
+            keyword: '"' + brand + '"',
             bounds: quadrants[quadrantIndex],
             type: type
         }, function (results, status, pagination) {
@@ -90,7 +90,7 @@ function FindPlacesService(gmap, searchArea) {
                             setTimeout(fillElevationData, 1, brand, places);
                         } else {
                             if (brands.length > 0) {
-                                setTimeout(nextBrandSearch, 1, brands.shift().toLowerCase());
+                                setTimeout(nextBrandSearch, 1, nextBrand());
                             }
 
                             console.info(brand, 'Completed with 0 results');
@@ -193,7 +193,7 @@ function FindPlacesService(gmap, searchArea) {
                     sendResults(brand, places);
 
                     if (brands.length > 0) {
-                        setTimeout(nextBrandSearch, 1, brands.shift().toLowerCase());
+                        setTimeout(nextBrandSearch, 1, nextBrand());
                     }
                 }
             } catch (ex) {
@@ -201,7 +201,7 @@ function FindPlacesService(gmap, searchArea) {
                     ex.message === google.maps.places.PlacesServiceStatus.UNKNOWN_ERROR) {
                     console.debug('Repeat', brand, fireStationPlaceIndex);
 
-                    setTimeout(nextFireStationDistance, 2000, brand, places, locations, fireStationPlaceIndex);
+                    setTimeout(nextFireStationDistance, 3000, brand, places, locations, fireStationPlaceIndex);
                 } else {
                     console.error('handleFireStationResults:', ex);
                 }
@@ -271,5 +271,9 @@ function FindPlacesService(gmap, searchArea) {
             dist = Math.min(fireStationDist, dist);
         }
         return dist;
+    }
+
+    function nextBrand() {
+        return '"' + brands.shift().toLowerCase() + '"';
     }
 }

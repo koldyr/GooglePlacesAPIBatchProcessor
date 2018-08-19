@@ -21,3 +21,14 @@ Elevation and distance to nearest Fire Station is in meters.
 You can run it as web or as command-line application. Command-line app has restriction to max 60 results per query - Google API limitation.
 With Web application there is no such restriction but you need to provide area to bound your search.
 
+Command-line is started as follows: java com.koldyr.google.places.BatchProcessor api_key input_file output_file 
+
+* api_key - Google API key 
+* input_file - file with list of queries
+* output_file - json file with results
+
+For Web application you need to specify same params but in a different way:
+* api_key - specify it in index.html 
+* input_file - specify it in init parameter "input" for DataServlet. By default queries should be put into "src\main\resources\input_all.txt" file
+* output_file - specify it in init parameter "output" for DataServlet
+
