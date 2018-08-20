@@ -87,7 +87,7 @@ public class JSONToCSVConverter {
     }
 
     private static String getFileHeader() {
-        return "placeId,name,address,location,elevation,fireStationDist\n";
+        return "placeId,name,address,location,elevation,fireStationDist,rating\n";
     }
 
     private static String getPlaceLine(Place place) {
@@ -97,7 +97,8 @@ public class JSONToCSVConverter {
         joiner.append(StringEscapeUtils.escapeCsv(place.getAddress())).append(',');
         joiner.append('"').append(place.getLocation().getLat()).append(',').append(place.getLocation().getLng()).append("\",");
         joiner.append(place.getElevation()).append(',');
-        joiner.append(place.getFireStationDist()).append('\n');
+        joiner.append(place.getFireStationDist()).append(',');
+        joiner.append(place.getRating()).append('\n');
         return joiner.toString();
     }
 
