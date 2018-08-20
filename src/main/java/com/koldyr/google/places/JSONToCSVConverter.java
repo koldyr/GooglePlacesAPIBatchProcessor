@@ -49,7 +49,7 @@ public class JSONToCSVConverter {
     }
 
     private static void writeSingle(ObjectMapper objectMapper, CollectionType placesCollection, File parentDir, File[] files) {
-        final File outputName = new File(parentDir, "los-angeles.csv");
+        final File outputName = new File(parentDir, parentDir.getName() + ".csv");
         try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputName)))) {
             writer.write(getFileHeader());
 
