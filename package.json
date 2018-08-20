@@ -1,0 +1,20 @@
+{
+    "name": "find-places-service",
+    "version": "0.0.1",
+    "license": "MIT",
+    "scripts": {
+        "clean": "rimraf dist",
+        "build": "tsc",
+        "build all": "npm run clean && npm run build"
+    },
+    "private": true,
+    "dependencies": {
+        "@types/googlemaps": "3.30.9"
+    },
+    "devDependencies": {
+        "typescript": "~2.7.2",
+        "@types/node": "~8.9.4",
+        "tslint": "~5.9.1",
+        "rimraf": "^2.6.2"
+    }
+}
