@@ -1,0 +1,26 @@
+{
+    "name": "find-places-service",
+    "version": "0.0.1",
+    "license": "MIT",
+    "scripts": {
+        "clean": "rimraf dist",
+        "build": "tsc",
+        "tslint": "tslint -p .",
+        "build all": "npm run clean && npm run build"
+    },
+    "private": true,
+    "dependencies": {
+        "@types/googlemaps": "3.30.9"
+    },
+    "devDependencies": {
+        "typescript": "~2.7.2",
+        "@types/node": "~8.9.4",
+        "tslint": "~5.9.1",
+        "rimraf": "^2.6.2",
+        "codelyzer": "^4.4.4",
+        "@angular/compiler": "^6.1.3",
+        "@angular/core": "^6.1.3",
+        "rxjs": "^6.0.0",
+        "zone.js": "^0.8.26"
+    }
+}

@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
@@ -33,6 +34,8 @@ import com.koldyr.google.model.Place;
 public class DataServlet extends HttpServlet {
 
     private static final Logger logger = Logger.getLogger(DataServlet.class);
+
+    private static final Pattern PATTERN_FILE_NAME = Pattern.compile("[\\[!\\\"#$%&'()*+,/:;<=>?@\\\\^`{|}~]");
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -76,7 +79,7 @@ public class DataServlet extends HttpServlet {
 
             final List<Place> result = objectMapper.readValue(httpServletRequest.getInputStream(), placesType);
 
-            objectMapper.writeValue(new File( output + brand + ".json"), result);
+            objectMapper.writeValue(new File( output + PATTERN_FILE_NAME.matcher(brand).replaceAll(StringUtils.EMPTY) + ".json"), result);
 
             logger.debug('"' + brand + "\" completed " + result.size());
         } catch (IllegalArgumentException e) {
