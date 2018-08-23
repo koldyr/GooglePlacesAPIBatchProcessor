@@ -6,7 +6,7 @@
 
     <groupId>com.koldyr</groupId>
     <artifactId>places-batch-processor</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.0</version>
     <packaging>war</packaging>
 
     <properties>
