@@ -21,12 +21,20 @@
                 left: 50px;
                 z-index: 1000;
             }
+
+            #cancel {
+                position: absolute;
+                top: 50px;
+                left: 110px;
+                z-index: 1000;
+            }
         </style>
-        <script>const exports = {}</script>
+        <script>const exports = {};</script>
         <script src="find-places-service.js"></script>
     </head>
     <body>
         <button id="start" onclick="findPlacesService.startProcess()">Search</button>
+        <button id="cancel" onclick="findPlacesService.cancel()">Cancel</button>
         <div id="map"></div>
         <script type="text/javascript"
                 src="https://maps.googleapis.com/maps/api/js?libraries=places&oe=utf-8&v=3.33&key=KEY_HERE&callback=initMap"></script>

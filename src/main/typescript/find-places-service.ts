@@ -1,6 +1,3 @@
-let findPlacesService;
-
-
 export interface Place {
     placeId: string;
     name: string;
@@ -24,6 +21,8 @@ export class FindPlacesService {
     private quadrantIndex: number;
     private quadrants: Array<google.maps.LatLngBounds>;
 
+    private isCanceled: boolean;
+
     constructor(map: google.maps.Map, searchArea: google.maps.LatLngBoundsLiteral) {
         this.map = map;
         this.placesService = new google.maps.places.PlacesService(map);
@@ -32,9 +31,15 @@ export class FindPlacesService {
     }
 
     public startProcess(): void {
+        this.isCanceled = false;
+
         this.getBrands().then((data) => {
             this.doPlacesSearch(data);
         });
+    }
+
+    public cancel(): void {
+        this.isCanceled = true;
     }
 
     private doPlacesSearch(data: Array<string>): void {
@@ -44,6 +49,8 @@ export class FindPlacesService {
     }
 
     private nextBrandSearch(brand: string): void {
+        if (this.isCanceled) return;
+
         console.info('Staring', brand);
 
         const places: Array<Place> = [];
@@ -65,13 +72,18 @@ export class FindPlacesService {
             } catch (ex) {
                 if (ex['status'] === google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT ||
                     ex['status'] === google.maps.places.PlacesServiceStatus.UNKNOWN_ERROR) {
-                    setTimeout(this.nextBrandSearch.bind(this), 10000, brand, places);
+                    setTimeout(this.nextBrandSearch.bind(this), 7000, brand, places);
                 }
             }
         });
     }
 
     private nextQuadrantSearch(brand: string, places: Array<Place>): void {
+        if (this.isCanceled) {
+            this.sendResults(brand, places);
+            return;
+        }
+
         console.debug(brand, 'index:' + this.quadrantIndex, places.length);
 
         this.placesService.nearbySearch({
@@ -179,6 +191,11 @@ export class FindPlacesService {
     }
 
     private nextFireStationDistance(brand: string, places: Array<Place>, locations: Array<google.maps.LatLng>, fireStationPlaceIndex: number): void {
+        if (this.isCanceled) {
+            this.sendResults(brand, places);
+            return;
+        }
+
         if (fireStationPlaceIndex % 50 === 0) {
             console.debug(brand, fireStationPlaceIndex);
         }
@@ -290,6 +307,8 @@ export class FindPlacesService {
     }
 }
 
+let findPlacesService;
+
 function initMap() {
     const map = new google.maps.Map(document.getElementById('map'), {
         center: {lat: 32, lng: -96},
@@ -306,4 +325,3 @@ function initMap() {
 
     findPlacesService = new FindPlacesService(map, la);
 }
-
