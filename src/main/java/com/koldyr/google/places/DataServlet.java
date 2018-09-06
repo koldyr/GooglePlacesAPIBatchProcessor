@@ -79,9 +79,12 @@ public class DataServlet extends HttpServlet {
 
             final List<Place> result = objectMapper.readValue(httpServletRequest.getInputStream(), placesType);
 
-            objectMapper.writeValue(new File( output + PATTERN_FILE_NAME.matcher(brand).replaceAll(StringUtils.EMPTY) + ".json"), result);
+            final File resultFile = new File(output + PATTERN_FILE_NAME.matcher(brand).replaceAll(StringUtils.EMPTY) + ".json");
+            if (resultFile.getParentFile().mkdirs()) {
+                objectMapper.writeValue(resultFile, result);
+            }
 
-            logger.debug('"' + brand + "\" completed " + result.size());
+            logger.debug(brand + " completed " + result.size());
         } catch (IllegalArgumentException e) {
             httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing value for " + e.getMessage());
         } catch (IOException e) {
