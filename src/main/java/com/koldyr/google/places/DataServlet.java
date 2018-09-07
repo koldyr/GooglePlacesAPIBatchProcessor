@@ -23,7 +23,7 @@ import com.fasterxml.jackson.databind.type.CollectionType;
 import com.koldyr.google.model.Place;
 
 /**
- * Description of class RetailersServlet
+ * Description of class DataServlet
  *
  * @created: 2018.08.16
  */
