@@ -1,28 +1,23 @@
 namespace com.koldyr.places {
 
     export enum ResultStatus {
-        ERROR = 'ERROR', REPEAT = 'REPEAT'
-    }
-
-    export interface FireStationsData {
-        places: Array<Place>;
-        status: ResultStatus;
+        OK = 'OK', ERROR = 'ERROR', REPEAT = 'REPEAT'
     }
 
     export class FireStationsLoader {
         private placesService: google.maps.places.PlacesService;
 
-        constructor(map: google.maps.Map) {
-            this.placesService = new google.maps.places.PlacesService(map);
+        constructor(placesService: google.maps.places.PlacesService) {
+            this.placesService = placesService;
         }
 
-        public load(brand: string, places: Array<Place>, locations: Array<google.maps.LatLng>): Promise<FireStationsData> {
+        public load(brand: string, places: Array<Place>, locations: Array<google.maps.LatLng>): Promise<ProcessContext> {
             return this.nextFireStationDistance(brand, places, locations, 0);
         }
 
-        private nextFireStationDistance(brand: string, places: Array<Place>, locations: Array<google.maps.LatLng>, index: number): Promise<FireStationsData> {
+        private nextFireStationDistance(brand: string, places: Array<Place>, locations: Array<google.maps.LatLng>, index: number): Promise<ProcessContext> {
             if (this.isCanceled) {
-                return new Promise<FireStationsData>((resolve: Function) => resolve({places}));
+                return new Promise<ProcessContext>((resolve: Function) => resolve({places}));
             }
 
             if (index % 50 === 0) {

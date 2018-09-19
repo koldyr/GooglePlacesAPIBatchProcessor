@@ -10,38 +10,53 @@ namespace com.koldyr.places {
         fireStationDist?: number;
     }
 
+    export class ProcessContext {
+
+        isRunning: boolean = true;
+        places: Array<Place> = [];
+        quadrantIndex: number = 0;
+        quadrants: Array<google.maps.LatLngBounds>;
+        bounds = new google.maps.LatLngBounds();
+
+        status: ResultStatus = ResultStatus.OK;
+        resolve: Function;
+
+        constructor(quadrants: Array<google.maps.LatLngBounds>) {
+            this.quadrants = quadrants;
+        }
+
+        nextQuadrant(): google.maps.LatLngBounds {
+            return this.quadrants[this.quadrantIndex++];
+        }
+
+        public hasNext(): boolean {
+            return this.quadrantIndex < this.quadrants.length;
+        }
+    }
+
     export class FindPlacesService {
         private map: google.maps.Map;
-        private placesService: google.maps.places.PlacesService;
-        private elevationService: google.maps.ElevationService;
-        private bounds = new google.maps.LatLngBounds();
-
-        private type = 'store';
+        private placesLoader: PlacesLoader;
 
         private brands: Array<string>;
 
-        private quadrantIndex: number;
-        private quadrants: Array<google.maps.LatLngBounds>;
-
-        private isCanceled: boolean;
+        private context: ProcessContext;
 
         constructor(map: google.maps.Map, searchArea: google.maps.LatLngBoundsLiteral) {
             this.map = map;
-            this.placesService = new google.maps.places.PlacesService(map);
-            this.elevationService = new google.maps.ElevationService();
-            this.quadrants = this.getQuadrants(searchArea);
+            this.placesLoader = new PlacesLoader(map);
+
+            this.context = new ProcessContext(this.getQuadrants(searchArea));
         }
 
         public startProcess(): void {
-            this.isCanceled = false;
-
             this.getBrands().then((data) => {
                 this.doPlacesSearch(data);
             });
         }
 
         public cancel(): void {
-            this.isCanceled = true;
+            this.context.isRunning = false;
         }
 
         private doPlacesSearch(data: Array<string>): void {
@@ -51,123 +66,26 @@ namespace com.koldyr.places {
         }
 
         private nextBrandSearch(brand: string): void {
-            if (this.isCanceled) return;
+            if (!this.context.isRunning) return;
 
             console.info('Staring', brand);
 
             const places: Array<Place> = [];
-            this.quadrantIndex = 0;
 
-            this.placesService.nearbySearch({
-                keyword: brand,
-                bounds: this.quadrants[this.quadrantIndex],
-                type: this.type
-            }, (results: google.maps.places.PlaceResult[], status: google.maps.places.PlacesServiceStatus, pagination: google.maps.places.PlaceSearchPagination) => {
-                try {
-                    this.handleSearchResults(results, status, pagination, places);
-
-                    if (!pagination || !pagination.hasNextPage) {
-                        this.quadrantIndex++;
-
-                        setTimeout(this.nextQuadrantSearch.bind(this), 1, brand, places);
-                    }
-                } catch (ex) {
-                    if (ex['status'] === google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT ||
-                        ex['status'] === google.maps.places.PlacesServiceStatus.UNKNOWN_ERROR) {
-                        setTimeout(this.nextBrandSearch.bind(this), 7000, brand, places);
-                    }
-                }
-            });
-        }
-
-        private nextQuadrantSearch(brand: string, places: Array<Place>): void {
-            if (this.isCanceled) {
+            this.placesLoader.load(brand, this.context).then((context: ProcessContext) => {
+                places.unshift(...context.places);
                 this.sendResults(brand, places);
-                return;
-            }
 
-            console.debug(brand, 'index:' + this.quadrantIndex, places.length);
-
-            this.placesService.nearbySearch({
-                keyword: brand,
-                bounds: this.quadrants[this.quadrantIndex],
-                type: this.type
-            }, (results, status, pagination) => {
-                try {
-                    this.handleSearchResults(results, status, pagination, places);
-
-                    if (!pagination || !pagination.hasNextPage) {
-                        this.quadrantIndex++;
-
-                        if (this.quadrantIndex < this.quadrants.length) {
-                            setTimeout(this.nextQuadrantSearch.bind(this), 1, brand, places);
-                        } else {
-                            if (places.length > 0) {
-                                console.info(brand, 'found', places.length, 'places');
-                                setTimeout(this.fillElevationData.bind(this), 1, brand, places);
-                            } else {
-                                if (this.brands.length > 0) {
-                                    setTimeout(this.nextBrandSearch.bind(this), 1, this.nextBrand());
-                                }
-
-                                console.info(brand, 'Completed with 0 results');
-                            }
-                        }
-                    }
-                } catch (ex) {
-                    if (ex['status'] === google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT ||
-                        ex['status'] === google.maps.places.PlacesServiceStatus.UNKNOWN_ERROR) {
-                        setTimeout(this.nextQuadrantSearch.bind(this), 7000, brand, places);
-                    } else {
-                        console.error('handleSearchResults:', ex);
-                    }
+                if (this.brands.length > 0) {
+                    setTimeout(this.nextBrandSearch.bind(this), 1, this.nextBrand());
+                }
+            }, (context: ProcessContext) => {
+                if (context.status == ResultStatus.REPEAT) {
+                    setTimeout(this.nextBrandSearch.bind(this), 7000, brand, places);
+                } else {
+                    console.error('Error');
                 }
             });
-        }
-
-        private handleSearchResults(results: google.maps.places.PlaceResult[], status: google.maps.places.PlacesServiceStatus,
-                                    pagination: google.maps.places.PlaceSearchPagination, places: Array<Place>): void {
-            if (status === google.maps.places.PlacesServiceStatus.OK) {
-                for (let i = 0; i < results.length; i++) {
-                    // createMarker(results[i]);
-                    places.push(this.createPlace(results[i]));
-                }
-
-                if (pagination && pagination.hasNextPage) {
-                    pagination.nextPage();
-                }
-            } else if (status === google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT ||
-                status === google.maps.places.PlacesServiceStatus.UNKNOWN_ERROR) {
-                const error = new Error();
-                error['status'] = status;
-                throw error;
-            } else if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
-                // ignore
-            } else {
-                console.debug(status.toString());
-            }
-        }
-
-        private createPlace(result): Place {
-            return {
-                name: result.name,
-                location: {lat: result.geometry.location.lat(), lng: result.geometry.location.lng()},
-                rating: result.rating,
-                placeId: result.place_id,
-                address: result.vicinity
-            };
-        }
-
-        private createMarker(place): google.maps.Marker {
-            const marker = new google.maps.Marker({
-                map: this.map,
-                position: place.geometry.location,
-                title: place.name
-            });
-
-            this.bounds.extend(place.geometry.location);
-
-            return marker;
         }
 
         private fillElevationData(brand: string, places: Array<Place>): void {
@@ -209,7 +127,7 @@ namespace com.koldyr.places {
                 type: 'fire_station'
             };
 
-            this.placesService.nearbySearch(request, (fireStations: google.maps.places.PlaceResult[], status: google.maps.places.PlacesServiceStatus) => {
+            this.placesLoader.nearbySearch(request, (fireStations: google.maps.places.PlaceResult[], status: google.maps.places.PlacesServiceStatus) => {
                 try {
                     this.handleFireStationResults(fireStations, status, retailerLocation, places[fireStationPlaceIndex]);
 
