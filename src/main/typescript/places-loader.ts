@@ -4,6 +4,7 @@ namespace com.koldyr.places {
         private placesService: google.maps.places.PlacesService;
         private elevationLoader: ElevationLoader;
         private fireStationsLoader: FireStationsLoader;
+        private promise: PromiseFunctions;
 
         constructor(map: google.maps.Map) {
             this.placesService = new google.maps.places.PlacesService(map);
@@ -11,10 +12,10 @@ namespace com.koldyr.places {
             this.fireStationsLoader = new FireStationsLoader(this.placesService);
         }
 
-        load(brand: string, context: ProcessContext): Promise<ProcessContext> {
-            return new Promise<ProcessContext>((resolve: Function, reject: Function) => {
+        load(brand: string, context: ProcessContext): Promise<Array<Place>> {
+            return new Promise<Array<Place>>((resolve: Function, reject: Function) => {
 
-                context.resolve = resolve;
+                this.promise = {resolve, reject};
 
                 const request = {
                     keyword: brand,
@@ -47,13 +48,13 @@ namespace com.koldyr.places {
 
         private nextQuadrantSearch(brand: string, context: ProcessContext): void {
             if (!context.isRunning) {
-                context.resolve(context);
+                this.promise.resolve(context);
                 return;
             }
 
             console.debug(brand, 'index:' + context.quadrantIndex, context.places.length);
 
-            let request = {
+            const request = {
                 keyword: brand,
                 bounds: context.nextQuadrant(),
                 type: 'store'
@@ -64,17 +65,21 @@ namespace com.koldyr.places {
                     this.handleSearchResults(results, status, pagination, context);
 
                     if (!pagination || !pagination.hasNextPage) {
-                        if (context.hasNext()) {
+                        if (context.hasQuadrant()) {
                             setTimeout(this.nextQuadrantSearch.bind(this), 1, brand, places);
                         } else {
                             if (context.places.length > 0) {
                                 console.info(brand, 'found', context.places.length, 'places');
 
                                 this.elevationLoader.load(context.places).then((result: ElevationData) => {
-                                    this.fireStationsLoader.load()
+                                    context.locationIndex = 0;
+                                    context.locations = result.locations;
+                                    this.fireStationsLoader.load(brand, context).then(() => {
+                                        this.promise.resolve();
+                                    });
                                 });
                             } else {
-                                context.resolve(context);
+                                this.promise.resolve(context);
 
                                 console.info(brand, 'Completed with 0 results');
                             }

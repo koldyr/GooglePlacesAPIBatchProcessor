@@ -6,25 +6,29 @@ namespace com.koldyr.places {
 
     export class FireStationsLoader {
         private placesService: google.maps.places.PlacesService;
+        private promise: PromiseFunctions;
 
         constructor(placesService: google.maps.places.PlacesService) {
             this.placesService = placesService;
         }
 
-        public load(brand: string, places: Array<Place>, locations: Array<google.maps.LatLng>): Promise<ProcessContext> {
-            return this.nextFireStationDistance(brand, places, locations, 0);
+        public load(brand: string, context: ProcessContext): Promise<ProcessContext> {
+            return new Promise<ProcessContext>((resolve: Function, reject: Function) => {
+                this.promise = {resolve, reject};
+                this.nextFireStationDistance(brand, context);
+            });
         }
 
-        private nextFireStationDistance(brand: string, places: Array<Place>, locations: Array<google.maps.LatLng>, index: number): Promise<ProcessContext> {
-            if (this.isCanceled) {
-                return new Promise<ProcessContext>((resolve: Function) => resolve({places}));
+        private nextFireStationDistance(brand: string, context: ProcessContext): void {
+            if (!context.isRunning) {
+                return;
             }
 
-            if (index % 50 === 0) {
-                console.debug(brand, index);
+            if (context.locationIndex % 50 === 0) {
+                console.debug(brand, context.locationIndex);
             }
 
-            const retailerLocation: google.maps.LatLng = locations[0];
+            const retailerLocation: google.maps.LatLng = context.nextLocation();
             const request: google.maps.places.PlaceSearchRequest = {
                 location: retailerLocation,
                 radius: 6000,
@@ -33,27 +37,22 @@ namespace com.koldyr.places {
 
             this.placesService.nearbySearch(request, (fireStations: google.maps.places.PlaceResult[], status: google.maps.places.PlacesServiceStatus) => {
                 try {
-                    this.handleFireStationResults(fireStations, status, retailerLocation, places[index]);
+                    this.handleFireStationResults(fireStations, status, retailerLocation, context.places[context.locationIndex]);
 
-                    locations.shift();
-
-                    if (locations.length > 0) {
-                        setTimeout(this.nextFireStationDistance.bind(this), 160, brand, places, locations, index + 1);
+                    if (context.hasLocation()) {
+                        setTimeout(this.nextFireStationDistance.bind(this), 160, brand, context);
                     } else {
-                        this.sendResults(brand, places);
-
-                        if (this.brands.length > 0) {
-                            setTimeout(this.nextBrandSearch.bind(this), 1, this.nextBrand());
-                        }
+                        this.promise.resolve();
                     }
                 } catch (ex) {
                     if (ex['status'] === google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT ||
                         ex['status'] === google.maps.places.PlacesServiceStatus.UNKNOWN_ERROR) {
-                        console.debug('Repeat', brand, index);
+                        console.debug('Repeat', brand, context.locationIndex);
 
-                        setTimeout(this.nextFireStationDistance.bind(this), 3000, brand, places, locations, index);
+                        setTimeout(this.nextFireStationDistance.bind(this), 3000, brand, context);
                     } else {
                         console.error('handleFireStationResults:', ex);
+                        this.promise.reject();
                     }
                 }
             });

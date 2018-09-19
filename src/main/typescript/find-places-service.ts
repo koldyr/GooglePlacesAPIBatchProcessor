@@ -10,16 +10,24 @@ namespace com.koldyr.places {
         fireStationDist?: number;
     }
 
+    export interface PromiseFunctions {
+        resolve: Function;
+        reject: Function;
+    }
+
     export class ProcessContext {
 
         isRunning: boolean = true;
         places: Array<Place> = [];
+
         quadrantIndex: number = 0;
         quadrants: Array<google.maps.LatLngBounds>;
-        bounds = new google.maps.LatLngBounds();
 
+        locations: Array<google.maps.LatLng>;
+        locationIndex: number = 0;
+
+        bounds = new google.maps.LatLngBounds();
         status: ResultStatus = ResultStatus.OK;
-        resolve: Function;
 
         constructor(quadrants: Array<google.maps.LatLngBounds>) {
             this.quadrants = quadrants;
@@ -29,8 +37,17 @@ namespace com.koldyr.places {
             return this.quadrants[this.quadrantIndex++];
         }
 
-        public hasNext(): boolean {
+        hasQuadrant(): boolean {
             return this.quadrantIndex < this.quadrants.length;
+        }
+
+        nextLocation(): google.maps.LatLng {
+            this.locationIndex++;
+            return this.locations.shift();
+        }
+
+        hasLocation(): boolean {
+            return this.locations.length > 0;
         }
     }
 
@@ -72,105 +89,20 @@ namespace com.koldyr.places {
 
             const places: Array<Place> = [];
 
-            this.placesLoader.load(brand, this.context).then((context: ProcessContext) => {
-                places.unshift(...context.places);
+            this.placesLoader.load(brand, this.context).then((result: Array<Place>) => {
+                places.unshift(...result         );
                 this.sendResults(brand, places);
 
                 if (this.brands.length > 0) {
                     setTimeout(this.nextBrandSearch.bind(this), 1, this.nextBrand());
                 }
             }, (context: ProcessContext) => {
-                if (context.status == ResultStatus.REPEAT) {
+                if (context.status === ResultStatus.REPEAT) {
                     setTimeout(this.nextBrandSearch.bind(this), 7000, brand, places);
                 } else {
                     console.error('Error');
                 }
             });
-        }
-
-        private fillElevationData(brand: string, places: Array<Place>): void {
-            console.info(brand, 'Elevation Data');
-            const locations = places.map((retailer) => new google.maps.LatLng(retailer.location.lat, retailer.location.lng));
-
-            this.elevationService.getElevationForLocations({locations: locations},
-                (elevations: google.maps.ElevationResult[], status: google.maps.ElevationStatus) => {
-                    if (status === google.maps.ElevationStatus.OK) {
-                        elevations.forEach((result, index) => {
-                            places[index].elevation = result.elevation;
-                        });
-                    }
-
-                    this.fillFireStationDistance(brand, places, locations);
-                });
-        }
-
-        private fillFireStationDistance(brand: string, places: Array<Place>, locations: Array<google.maps.LatLng>): void {
-            console.info(brand, 'Fire Station Distance');
-
-            this.nextFireStationDistance(brand, places, locations, 0);
-        }
-
-        private nextFireStationDistance(brand: string, places: Array<Place>, locations: Array<google.maps.LatLng>, fireStationPlaceIndex: number): void {
-            if (this.isCanceled) {
-                this.sendResults(brand, places);
-                return;
-            }
-
-            if (fireStationPlaceIndex % 50 === 0) {
-                console.debug(brand, fireStationPlaceIndex);
-            }
-
-            const retailerLocation: google.maps.LatLng = locations[0];
-            const request: google.maps.places.PlaceSearchRequest = {
-                location: retailerLocation,
-                radius: 6000,
-                type: 'fire_station'
-            };
-
-            this.placesLoader.nearbySearch(request, (fireStations: google.maps.places.PlaceResult[], status: google.maps.places.PlacesServiceStatus) => {
-                try {
-                    this.handleFireStationResults(fireStations, status, retailerLocation, places[fireStationPlaceIndex]);
-
-                    locations.shift();
-
-                    if (locations.length > 0) {
-                        setTimeout(this.nextFireStationDistance.bind(this), 160, brand, places, locations, fireStationPlaceIndex + 1);
-                    } else {
-                        this.sendResults(brand, places);
-
-                        if (this.brands.length > 0) {
-                            setTimeout(this.nextBrandSearch.bind(this), 1, this.nextBrand());
-                        }
-                    }
-                } catch (ex) {
-                    if (ex['status'] === google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT ||
-                        ex['status'] === google.maps.places.PlacesServiceStatus.UNKNOWN_ERROR) {
-                        console.debug('Repeat', brand, fireStationPlaceIndex);
-
-                        setTimeout(this.nextFireStationDistance.bind(this), 3000, brand, places, locations, fireStationPlaceIndex);
-                    } else {
-                        console.error('handleFireStationResults:', ex);
-                    }
-                }
-            });
-        }
-
-        private handleFireStationResults(fireStations: google.maps.places.PlaceResult[], status: google.maps.places.PlacesServiceStatus,
-                                         retailerLocation: google.maps.LatLng, place: Place): void {
-            if (status === google.maps.places.PlacesServiceStatus.OK) {
-                if (fireStations.length > 0) {
-                    place.fireStationDist = this.getNearestFireStation(retailerLocation, fireStations);
-                }
-            } else if (status === google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT ||
-                status === google.maps.places.PlacesServiceStatus.UNKNOWN_ERROR) {
-                const error = new Error();
-                error['status'] = status;
-                throw error;
-            } else if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
-                // ignore
-            } else {
-                console.debug(status.toString());
-            }
         }
 
         private sendResults(brand: string, places: Array<Place>): void {
@@ -210,16 +142,6 @@ namespace com.koldyr.places {
                 y1 = y2 = searchArea.south;
             }
             return quadrants;
-        }
-
-        private getNearestFireStation(retailerLocation: google.maps.LatLng, fireStations: google.maps.places.PlaceResult[]): number {
-            let dist = 1000000000;
-            for (let i = 0; i < fireStations.length; i++) {
-                const fireStation = fireStations[i];
-                const fireStationDist = google.maps.geometry.spherical.computeDistanceBetween(retailerLocation, fireStation.geometry.location);
-                dist = Math.min(fireStationDist, dist);
-            }
-            return dist;
         }
 
         private nextBrand(): string {
