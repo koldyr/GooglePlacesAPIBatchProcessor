@@ -24,7 +24,7 @@ namespace com.koldyr.places {
         quadrants: Array<google.maps.LatLngBounds>;
 
         locations: Array<google.maps.LatLng>;
-        locationIndex: number = 0;
+        locationIndex: number = -1;
 
         bounds = new google.maps.LatLngBounds();
         status: ResultStatus = ResultStatus.OK;
@@ -87,18 +87,18 @@ namespace com.koldyr.places {
 
             console.info('Staring', brand);
 
-            const places: Array<Place> = [];
-
-            this.placesLoader.load(brand, this.context).then((result: Array<Place>) => {
-                places.unshift(...result         );
+            this.placesLoader.load(brand, this.context).then((places: Array<Place>) => {
                 this.sendResults(brand, places);
+
+                this.context.quadrantIndex = 0;
+                this.context.places = [];
 
                 if (this.brands.length > 0) {
                     setTimeout(this.nextBrandSearch.bind(this), 1, this.nextBrand());
                 }
             }, (context: ProcessContext) => {
                 if (context.status === ResultStatus.REPEAT) {
-                    setTimeout(this.nextBrandSearch.bind(this), 7000, brand, places);
+                    setTimeout(this.nextBrandSearch.bind(this), 7000, brand);
                 } else {
                     console.error('Error');
                 }

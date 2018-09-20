@@ -77,7 +77,7 @@ namespace com.koldyr.places {
         }
 
         private getNearestFireStation(retailerLocation: google.maps.LatLng, fireStations: google.maps.places.PlaceResult[]): number {
-            let dist = 1000000000;
+            let dist = Number.MAX_VALUE;
             for (let i = 0; i < fireStations.length; i++) {
                 const fireStation = fireStations[i];
                 const fireStationDist = google.maps.geometry.spherical.computeDistanceBetween(retailerLocation, fireStation.geometry.location);

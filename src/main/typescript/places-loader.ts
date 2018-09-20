@@ -29,17 +29,16 @@ namespace com.koldyr.places {
                             this.handleSearchResults(results, status, pagination, context);
 
                             if (!pagination || !pagination.hasNextPage) {
-                                context.status = ResultStatus.OK;
                                 setTimeout(this.nextQuadrantSearch.bind(this), 1, brand, context);
                             }
                         } catch (ex) {
                             if (ex['status'] === google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT ||
                                 ex['status'] === google.maps.places.PlacesServiceStatus.UNKNOWN_ERROR) {
                                 context.status = ResultStatus.REPEAT;
-                                resolve(context);
+                                resolve(context.places);
                             } else {
                                 context.status = ResultStatus.ERROR;
-                                reject(context);
+                                reject(context.places);
                             }
                         }
                     });
@@ -48,7 +47,7 @@ namespace com.koldyr.places {
 
         private nextQuadrantSearch(brand: string, context: ProcessContext): void {
             if (!context.isRunning) {
-                this.promise.resolve(context);
+                this.promise.resolve(context.places);
                 return;
             }
 
@@ -72,14 +71,17 @@ namespace com.koldyr.places {
                                 console.info(brand, 'found', context.places.length, 'places');
 
                                 this.elevationLoader.load(context.places).then((result: ElevationData) => {
-                                    context.locationIndex = 0;
+                                    context.locationIndex = -1;
                                     context.locations = result.locations;
+
                                     this.fireStationsLoader.load(brand, context).then(() => {
-                                        this.promise.resolve();
+                                        context.status = ResultStatus.OK;
+                                        this.promise.resolve(context.places);
                                     });
                                 });
                             } else {
-                                this.promise.resolve(context);
+                                context.status = ResultStatus.OK;
+                                this.promise.resolve(context.places);
 
                                 console.info(brand, 'Completed with 0 results');
                             }
