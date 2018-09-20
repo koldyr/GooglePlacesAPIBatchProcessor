@@ -1,9 +1,5 @@
 namespace com.koldyr.places {
 
-    export enum ResultStatus {
-        OK = 'OK', ERROR = 'ERROR', REPEAT = 'REPEAT'
-    }
-
     export class FireStationsLoader {
         private placesService: google.maps.places.PlacesService;
         private promise: PromiseFunctions;

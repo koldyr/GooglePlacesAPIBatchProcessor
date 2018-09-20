@@ -15,6 +15,10 @@ namespace com.koldyr.places {
         reject: Function;
     }
 
+    export enum ResultStatus {
+        OK = 'OK', ERROR = 'ERROR', REPEAT = 'REPEAT'
+    }
+
     export class ProcessContext {
 
         isRunning: boolean = true;
