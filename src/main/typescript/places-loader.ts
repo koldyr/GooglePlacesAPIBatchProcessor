@@ -2,20 +2,19 @@ namespace com.koldyr.places {
 
     export class PlacesLoader {
         private placesService: google.maps.places.PlacesService;
-        private elevationLoader: ElevationLoader;
-        private fireStationsLoader: FireStationsLoader;
         private promise: PromiseFunctions;
 
-        constructor(map: google.maps.Map) {
-            this.placesService = new google.maps.places.PlacesService(map);
-            this.elevationLoader = new ElevationLoader();
-            this.fireStationsLoader = new FireStationsLoader(this.placesService);
+        constructor(placesService: google.maps.places.PlacesService) {
+            this.placesService = placesService;
         }
 
         load(brand: string, context: ProcessContext): Promise<Array<Place>> {
             return new Promise<Array<Place>>((resolve: Function, reject: Function) => {
 
                 this.promise = {resolve, reject};
+
+                context.quadrantIndex = 0;
+                context.places = [];
 
                 const request = {
                     keyword: brand,
@@ -67,24 +66,9 @@ namespace com.koldyr.places {
                         if (context.hasQuadrant()) {
                             setTimeout(this.nextQuadrantSearch.bind(this), 1, brand, places);
                         } else {
-                            if (context.places.length > 0) {
-                                console.info(brand, 'found', context.places.length, 'places');
-
-                                this.elevationLoader.load(context.places).then((result: ElevationData) => {
-                                    context.locationIndex = -1;
-                                    context.locations = result.locations;
-
-                                    this.fireStationsLoader.load(brand, context).then(() => {
-                                        context.status = ResultStatus.OK;
-                                        this.promise.resolve(context.places);
-                                    });
-                                });
-                            } else {
-                                context.status = ResultStatus.OK;
-                                this.promise.resolve(context.places);
-
-                                console.info(brand, 'Completed with 0 results');
-                            }
+                            console.info(brand, `Completed with ${context.places.length} places`);
+                            context.status = ResultStatus.OK;
+                            this.promise.resolve(context.places);
                         }
                     }
                 } catch (ex) {
@@ -93,10 +77,11 @@ namespace com.koldyr.places {
                         setTimeout(this.nextQuadrantSearch.bind(this), 7000, brand, context);
                     } else {
                         console.error('handleSearchResults:', ex);
+                        context.status = ResultStatus.ERROR;
+                        this.promise.reject(context.places);
                     }
                 }
             });
-
         }
 
         private handleSearchResults(results: google.maps.places.PlaceResult[], status: google.maps.places.PlacesServiceStatus,

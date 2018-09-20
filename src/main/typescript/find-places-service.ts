@@ -58,6 +58,8 @@ namespace com.koldyr.places {
     export class FindPlacesService {
         private map: google.maps.Map;
         private placesLoader: PlacesLoader;
+        private elevationLoader: ElevationLoader;
+        private fireStationsLoader: FireStationsLoader;
 
         private brands: Array<string>;
 
@@ -65,7 +67,11 @@ namespace com.koldyr.places {
 
         constructor(map: google.maps.Map, searchArea: google.maps.LatLngBoundsLiteral) {
             this.map = map;
-            this.placesLoader = new PlacesLoader(map);
+
+            const placesService = new google.maps.places.PlacesService(map);
+            this.placesLoader = new PlacesLoader(placesService);
+            this.fireStationsLoader = new FireStationsLoader(placesService);
+            this.elevationLoader = new ElevationLoader();
 
             this.context = new ProcessContext(this.getQuadrants(searchArea));
         }
@@ -92,14 +98,19 @@ namespace com.koldyr.places {
             console.info('Staring', brand);
 
             this.placesLoader.load(brand, this.context).then((places: Array<Place>) => {
-                this.sendResults(brand, places);
 
-                this.context.quadrantIndex = 0;
-                this.context.places = [];
+                this.elevationLoader.load(places).then((result: ElevationData) => {
+                    this.context.locationIndex = -1;
+                    this.context.locations = result.locations;
 
-                if (this.brands.length > 0) {
-                    setTimeout(this.nextBrandSearch.bind(this), 1, this.nextBrand());
-                }
+                    this.fireStationsLoader.load(brand, this.context).then(() => {
+                        this.sendResults(brand, places);
+
+                        if (this.brands.length > 0) {
+                            setTimeout(this.nextBrandSearch.bind(this), 1, this.nextBrand());
+                        }
+                    });
+                });
             }, (context: ProcessContext) => {
                 if (context.status === ResultStatus.REPEAT) {
                     setTimeout(this.nextBrandSearch.bind(this), 7000, brand);
