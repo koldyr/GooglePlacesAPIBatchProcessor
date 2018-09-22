@@ -121,7 +121,7 @@ namespace com.koldyr.places {
         }
 
         private sendResults(brand: string, places: Array<Place>): void {
-            console.info(brand, 'Completed', places.length);
+            console.info(brand, 'completed.', places.length, 'places encoded');
 
             fetch('places', {
                 method: 'POST',

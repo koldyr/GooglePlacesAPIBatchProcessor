@@ -50,7 +50,7 @@ namespace com.koldyr.places {
                 return;
             }
 
-            console.debug(brand, 'index:' + context.quadrantIndex, context.places.length);
+            console.debug(brand, ' - quadr:', context.quadrantIndex, ', count:', context.places.length);
 
             const request = {
                 keyword: brand,
@@ -64,9 +64,13 @@ namespace com.koldyr.places {
 
                     if (!pagination || !pagination.hasNextPage) {
                         if (context.hasQuadrant()) {
-                            setTimeout(this.nextQuadrantSearch.bind(this), 1, brand, places);
+                            setTimeout(this.nextQuadrantSearch.bind(this), 1, brand, context);
                         } else {
-                            console.info(brand, `Completed with ${context.places.length} places`);
+                            if (context.places.length > 0) {
+                                console.info(brand, 'found', context.places.length, 'places');
+                            } else {
+                                console.info(brand, 'Completed with', context.places.length, 'places');
+                            }
                             context.status = ResultStatus.OK;
                             this.promise.resolve(context.places);
                         }
