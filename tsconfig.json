@@ -2,6 +2,7 @@
     "compileOnSave": false,
     "compilerOptions": {
         "outDir": "./dist",
+        "outFile": "./dist/find-places-service.js",
         "baseUrl": "./",
         "sourceMap": false,
         "declaration": false,
