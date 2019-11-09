@@ -4,4 +4,6 @@ target
 node_modules
 *.log
 *.http
-
+*.ipr
+*.iml
+*.iws
