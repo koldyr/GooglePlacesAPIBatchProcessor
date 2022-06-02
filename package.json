@@ -21,6 +21,6 @@
         "zone.js": "^0.8.26",
         "codelyzer": "^4.4.4",
         "@angular/compiler": "^6.1.7",
-        "@angular/core": "^6.1.7"
+        "@angular/core": "^11.0.5"
     }
 }
