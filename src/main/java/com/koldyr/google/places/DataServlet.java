@@ -2,7 +2,6 @@ package com.koldyr.google.places;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -15,12 +14,14 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.commons.lang3.StringUtils;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.CollectionType;
 import com.koldyr.google.model.Place;
+
+import static org.apache.commons.lang3.StringUtils.*;
 
 /**
  * Description of class DataServlet
@@ -29,11 +30,11 @@ import com.koldyr.google.model.Place;
  */
 @WebServlet(value = "/places/*", initParams = {
         @WebInitParam(name = "input", value = ""),
-        @WebInitParam(name = "output", value = "C:/Projects/GooglePlacesAPIBatchProcessor/encoded/")
+        @WebInitParam(name = "output", value = "./encoded/")
 })
 public class DataServlet extends HttpServlet {
 
-    private static final Logger logger = Logger.getLogger(DataServlet.class);
+    private static final Logger logger = LogManager.getLogger(DataServlet.class);
 
     private static final Pattern PATTERN_FILE_NAME = Pattern.compile("[\\[!\\\"#$%&'()*+,/:;<=>?@\\\\^`{|}~]");
 
@@ -50,36 +51,36 @@ public class DataServlet extends HttpServlet {
         super.init(config);
 
         input = config.getInitParameter("input");
-        if (StringUtils.isEmpty(input)) {
+        if (isEmpty(input)) {
             input = "/input_all.txt";
         }
         output = config.getInitParameter("output");
-        if (StringUtils.isEmpty(output)) {
+        if (isEmpty(output)) {
             output = "/";
         }
     }
 
     @Override
-    protected void doGet(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) throws IOException {
-        final InputStream inputStream = getClass().getResourceAsStream(input);
-        final List<String> brandNames = BatchProcessor.loadInputData(inputStream);
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        var inputStream = getClass().getResourceAsStream(input);
+        var brandNames = BatchProcessor.loadInputData(inputStream);
 
-        objectMapper.writeValue(httpServletResponse.getOutputStream(), brandNames);
+        objectMapper.writeValue(response.getOutputStream(), brandNames);
 
-        httpServletResponse.flushBuffer();
+        response.flushBuffer();
     }
 
     @Override
-    protected void doPost(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) throws IOException {
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
         try {
-            final String brand = httpServletRequest.getHeader("x-brand");
-            if (StringUtils.isEmpty(brand)) {
+            var brand = request.getHeader("x-brand");
+            if (isEmpty(brand)) {
                 throw new IllegalArgumentException("x-brand");
             }
 
-            final List<Place> result = objectMapper.readValue(httpServletRequest.getInputStream(), placesType);
+            final List<Place> result = objectMapper.readValue(request.getInputStream(), placesType);
 
-            final File resultFile = new File(output + PATTERN_FILE_NAME.matcher(brand).replaceAll(StringUtils.EMPTY) + ".json");
+            var resultFile = new File(output + PATTERN_FILE_NAME.matcher(brand).replaceAll(EMPTY) + ".json");
 
             if (resultFile.getParentFile().exists()) {
                 objectMapper.writeValue(resultFile, result);
@@ -91,10 +92,10 @@ public class DataServlet extends HttpServlet {
 
             logger.debug(brand + " completed " + result.size());
         } catch (IllegalArgumentException e) {
-            httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing value for " + e.getMessage());
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing value for " + e.getMessage());
         } catch (IOException e) {
             logger.error(e.getMessage(), e);
-            httpServletResponse.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getMessage());
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getMessage());
         }
     }
 }

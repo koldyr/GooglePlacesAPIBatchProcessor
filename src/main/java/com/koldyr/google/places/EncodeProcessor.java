@@ -5,7 +5,8 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.koldyr.google.model.Place;
 
@@ -15,7 +16,7 @@ import com.koldyr.google.model.Place;
  * @created: 2018.08.15
  */
 class EncodeProcessor implements Callable<List<Place>> {
-    private static final Logger logger = Logger.getLogger(EncodeProcessor.class);
+    private static final Logger logger = LogManager.getLogger(EncodeProcessor.class);
 
     private final FindPlaceService placesService;
     private final ReentrantReadWriteLock.ReadLock readLock;

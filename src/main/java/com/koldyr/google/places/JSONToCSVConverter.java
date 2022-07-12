@@ -8,12 +8,14 @@ import java.io.OutputStreamWriter;
 import java.util.LinkedList;
 import java.util.List;
 
-import org.apache.commons.lang3.StringEscapeUtils;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.CollectionType;
 import com.koldyr.google.model.Place;
+
+import static org.apache.commons.text.StringEscapeUtils.*;
 
 /**
  * Description of class JSONToCSVConverter
@@ -21,7 +23,7 @@ import com.koldyr.google.model.Place;
  * @created: 2018.08.17
  */
 public class JSONToCSVConverter {
-    private static final Logger logger = Logger.getLogger(JSONToCSVConverter.class);
+    private static final Logger logger = LogManager.getLogger(JSONToCSVConverter.class);
 
     public static void main(String[] args) {
         ObjectMapper objectMapper = new ObjectMapper();
@@ -46,7 +48,7 @@ public class JSONToCSVConverter {
     }
 
     private static void writeSingle(ObjectMapper objectMapper, CollectionType placesCollection, File parentDir, File[] files) {
-        final File outputName = new File(parentDir, parentDir.getName() + ".csv");
+        var outputName = new File(parentDir, parentDir.getName() + ".csv");
         try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputName)))) {
             writer.write(getFileHeader());
 
@@ -66,7 +68,7 @@ public class JSONToCSVConverter {
     private static void writeCSVFile(String brand, File jsonFile, Iterable<Place> places) {
         logger.debug(brand);
 
-        final File outputName = new File(jsonFile.getParentFile(), brand + ".csv");
+        var outputName = new File(jsonFile.getParentFile(), brand + ".csv");
         try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputName)))) {
             writer.write(getFileHeader());
             for (Place place : places) {
@@ -90,8 +92,8 @@ public class JSONToCSVConverter {
     private static String getPlaceLine(Place place) {
         StringBuilder joiner = new StringBuilder();
         joiner.append(place.getPlaceId()).append(',');
-        joiner.append(StringEscapeUtils.escapeCsv(place.getName())).append(',');
-        joiner.append(StringEscapeUtils.escapeCsv(place.getAddress())).append(',');
+        joiner.append(escapeCsv(place.getName())).append(',');
+        joiner.append(escapeCsv(place.getAddress())).append(',');
         joiner.append('"').append(place.getLocation().getLat()).append(',').append(place.getLocation().getLng()).append("\",");
         joiner.append(place.getElevation()).append(',');
         joiner.append(place.getFireStationDist()).append(',');
@@ -100,8 +102,8 @@ public class JSONToCSVConverter {
     }
 
     private static String getBrand(File jsonFile) {
-        String name = jsonFile.getName();
-        int index = name.lastIndexOf('.');
+        var name = jsonFile.getName();
+        var index = name.lastIndexOf('.');
         return name.substring(0, index);
     }
 }

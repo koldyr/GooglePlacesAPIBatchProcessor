@@ -3,7 +3,6 @@ package com.koldyr.google.json;
 import java.io.IOException;
 
 import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.ObjectCodec;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -18,12 +17,12 @@ public class GeometryDeserializer extends JsonDeserializer<Location> {
 
     @Override
     public Location deserialize(JsonParser parser, DeserializationContext ctxt) throws IOException {
-        final ObjectCodec codec = parser.getCodec();
+        var codec = parser.getCodec();
         final JsonNode node = codec.readTree(parser);
         final JsonNode locationNode = node.get("location");
 
-        double lat = locationNode.get("lat").asDouble();
-        double lng = locationNode.get("lng").asDouble();
+        var lat = locationNode.get("lat").asDouble();
+        var lng = locationNode.get("lng").asDouble();
         return new Location(lat, lng);
     }
 }
